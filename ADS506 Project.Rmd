@@ -1,0 +1,164 @@
+---
+title: "ADS506 Team 4 Project"
+author: "Jacqueline Urenda"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+#loading Libraries:
+library(tidyverse)
+library(fpp2)
+library(readr)
+library(forecast)
+library(ggplot2)
+library(gridExtra)
+library(reshape2)
+library(dplyr)
+library(lubridate)
+set.seed(506)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Exploratory Data Analysis: 
+
+```{r}
+# Loading the Tetuan City Power Consumption Dataset
+
+pc_df <- read_csv("/Users/jackieurenda/Desktop/ADS 506/Tetuan City power consumption.csv", 
+                  col_types = cols(DateTime = col_datetime(format = "%m/%d/%Y %H:%M")))
+
+head(pc_df)
+tail(pc_df)
+```
+
+EDA and Understanding Data:
+```{r}
+sum(is.na(pc_df))
+#there are no null values in the dataset
+```
+Descriptive Summary Statisics:
+```{r}
+
+summary(pc_df)
+
+```
+Dataset dates range from 01/01/2017 to 12/30/2017 (364 days total). The temperature median and mean are around 18 degrees celsius. Average humidity is 68.26%, which is pretty high. 
+
+
+
+```{r}
+library(corrplot)
+corr <- round(x = cor(pc_df[, 2:9]), digits = 2)
+library(RColorBrewer)
+corrplot(corr, method = "color", outline = T, addgrid.col = "darkgray", order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,cl.pos = "b", tl.col = "indianred4", tl.cex = .75, cl.cex = .75, addCoef.col = "white", number.digits = 2, number.cex = 0.5, col = colorRampPalette(c("darkred","white","midnightblue"))(100))
+```
+All three zones have strong correlations between each other. Temperature and wind speed have a correlation of 0.48. Humidity and temperature have a moderate but noticeable correlation as well. General diffuse flows and Diffuse flows have a correlation of 0.56.
+
+Time Series Data on 10 Minute Interval: 
+```{r}
+#setting time series for each zone:
+pc_ts1 <- ts(pc_df$`Zone 1 Power Consumption`)
+pc_ts2 <- ts(pc_df$`Zone 2  Power Consumption`)
+pc_ts3 <- ts(pc_df$`Zone 3  Power Consumption`)
+```
+
+
+PLotting Time Series Data individually:
+```{r}
+plot(pc_ts1, range = range(pc_ts1), col = 'blue', xlab = "Time", ylab ="Power Consumption")
+plot(pc_ts2, range = range(pc_ts2), col = 'red', xlab = "Time", ylab ="Power Consumption")
+plot(pc_ts3, range = range(pc_ts3), col = 'black', xlab = "Time", ylab ="Power Consumption")
+```
+
+
+
+
+Looking at distribution of columns:
+```{r}
+par(mfrow=c(3,3))
+hist(pc_df$Temperature, main="Histogram of Temperature", col = "blue", xlab = "Temperature")
+hist(pc_df$Humidity, main="Histogram of Humidity", col = "blue", xlab = "Humidity")
+hist(pc_df$`Wind Speed`, main="Histogram of Wind Speed", col = "blue", xlab = "Wind Speed")
+hist(pc_df$`general diffuse flows`, main="Histogram of General Diffuse", col = "blue", xlab = "General Diffuse Flow")
+hist(pc_df$`diffuse flows`, main="Histogram of Diffuse", col = "blue", xlab ="Diffuse Flow")
+hist(pc_df$`Zone 1 Power Consumption`, main="Histogram of Zone 1", col = "blue", xlab ="Zone 1 Power Consumption")
+hist(pc_df$`Zone 2  Power Consumption`, main="Histogram of Zone 2", col = "blue", xlab ="Zone 2 Power Consumption")
+hist(pc_df$`Zone 3  Power Consumption`, main="Histogram of Zone 3", col = "blue", xlab ="Zone 3 Power Consumption")
+```
+Temperature appers to have a normal distribution. Humidity is left skewed- as mentioned in summary statistics, humidity is pretty high. Wind Speed is interesting as well, looks like either little to low wind speeds or ~4.5 km/h wind speed . General and Diffuse flows are right skewed. Flow tends to be on a lower level. Zone 1 and Zone 2 have a prety normal distribution. Zone 2 looks normal as well but looks a bit right skewed. 
+
+```{r}
+plot(pc_df$`Zone 1 Power Consumption`,
+     type="l",
+     col =2,
+     ylim = c(5000,55000),
+     xlab = "Date",
+     ylab = "Power Consumption (kW)")
+lines(pc_df$`Zone 2  Power Consumption`,
+       type="l",
+     col =3)
+lines(pc_df$`Zone 3  Power Consumption`,
+       type="l",
+     col =4)
+legend("topright", c("Zone 1", "Zone 2", "Zone 3"), lty = 1, col = 2:4)
+```
+Looking at all three zone's power consumption, it looks like Zone 1 has more power consumption than both Zone 2 and Zone 3. 
+
+
+Grouping Time Series To look at Daily:
+```{r}
+#Creating Column with just the date
+pc_df$Date <- as.Date(pc_df$DateTime, format="%m/%d/%Y")
+head(pc_df)
+
+#Combining Date: 
+pc_zone1_daily <- pc_df %>% group_by(Date) %>% summarise(Total= sum(`Zone 1 Power Consumption`))
+pc_zone2_daily <- pc_df %>% group_by(Date) %>% summarise(Total= sum(`Zone 2  Power Consumption`))
+pc_zone3_daily <- pc_df %>% group_by(Date) %>% summarise(Total= sum(`Zone 3  Power Consumption`))
+
+head(pc_zone1_daily)
+head(pc_zone2_daily)
+head(pc_zone3_daily)
+
+#Setting as time series:
+
+pc_ts1_daily  <- ts(pc_zone1_daily$Total)
+pc_ts2_daily  <- ts(pc_zone2_daily$Total)
+pc_ts3_daily  <- ts(pc_zone3_daily$Total)
+```
+
+Plotting Time Series Daily:
+```{r}
+#Daily Time Series Zone 1
+autoplot(pc_ts1_daily) +
+  labs(title = "Zone 1 Daily Power Consumption",
+       x = "Day",
+       y = "Power Consumption (kW)") +
+  theme_classic()
+
+#Daily Time Series Zone 2
+autoplot(pc_ts2_daily) +
+  labs(title = "Zone 2 Daily Power Consumption",
+       x = "Day",
+       y = "Power Consumption (kW)") +
+  theme_classic()
+
+#Daily Time Series Zone 3
+autoplot(pc_ts3_daily) +
+  labs(title = "Zone 3 Daily Power Consumption",
+       x = "Day",
+       y = "Power Consumption (kW)") +
+  theme_classic()
+
+```
+All Three zones have similar trending path- Power consumption increases up until it reaches a peak followed by a decline. Looks like there's some seasonlity.There are some sharp declines on random days- perhaps indicators of power outages or something
+```{r}
+
+```
+```
+
