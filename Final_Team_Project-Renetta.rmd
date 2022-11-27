@@ -1,0 +1,296 @@
+
+```{r}
+
+library(tidyverse) 
+library(fpp2)
+library(zoo)
+library(readr)
+library(dplyr)
+library(sfsmisc)
+library(Hmisc)
+library(corrplot)
+
+set.seed(506) 
+
+```
+
+
+#get our data
+
+```{r, message=FALSE}
+
+power_consump <- read_csv("Tetuan City power consumption.csv")
+
+
+View(power_consump)
+
+
+```
+
+```{r}
+
+sum(is.na(power_consump))
+
+```
+
+```{r}
+
+#boxplot(power_consump$`Zone 1 Power Consumption` ~ power_consump$Temperature,data=power_consump, main="Car Milage Data", xlab="Temperature", ylab="Power Consumption")
+
+power_df = data.frame(power_consump)
+
+predictors <- power_df[, 2:6]
+
+response <- power_df[7]
+
+correlations <- cor(predictors)
+
+corrplot(correlations, order = "hclust")
+
+
+
+
+```
+
+
+
+
+```{r}
+#imported not sure what it looks like; going to do a structure
+str(power_consump)
+
+#change format of one column; overwrite the column
+
+power_consump$DateTime <- as.Date(power_consump$DateTime, format = "%m/%d/%Y") #uppercase Y because it is four digit year
+
+#print(power_consump$DateTime)
+
+summary(power_consump)
+
+```
+
+> The data was put into a structure. The date column of the dataset was formatted using as.Date function. Since the date in this data has a four-digit year, the capital Y was used. A summary of the data was also generated. The zone with the highest power consumption is Zone 1 with Zone 2 being the lowest. The max temperature is approxiamtely 40. The max humidity and wind speed are approxiamtely 94.8 and 6.48 respectively.
+
+```{r}
+
+power_daily <- power_consump %>% group_by(DateTime) %>% summarise(Total = sum(`Zone 1 Power Consumption`))
+
+summary(power_daily)
+
+```
+> From the power consumption dataset, we piped the data to look at the daily consumption. The original data set was taken and specific instructions were implemented in order to produce the desired results. The first thing that was done was we grouped the data by date. Then we summed up all the cells for each day and put it into a column called "Total". The summary for the daily power consumption was generated as well. The data is from January 2017 to December 2017. We noticed that the last month of December was not included in this dataset. Therefore, we only have 364 days instead of 365.
+
+
+```{r}
+
+ggplot(power_daily, aes(DateTime, Total)) + geom_line() + theme_classic()
+
+
+```
+
+> The daily power consumption was plotted. From the plot, we concluded a few things. One being that this data is not stationary. The variance here is not consisent at a point in time. 
+
+
+```{r}
+
+power_monthly <- power_consump %>% group_by(Month = format(DateTime, "%Y - %m")) %>% summarise(Total = sum(`Zone 1 Power Consumption`))
+
+ggplot(power_monthly, aes(x = Month, y = Total, group = 1)) + geom_line(size = 1, color = "green") + theme_classic()
+
+
+```
+
+> We also looked at the monthly power consumption.
+
+
+
+```{r}
+
+
+power_ts <- ts(power_daily$Total, start = c(2017, 1), frequency = 12)
+power_ts
+
+
+```
+
+> The data was generated as a time series.
+
+
+```{r}
+
+plot(power_ts)
+
+```
+
+```{r}
+
+autoplot(power_ts) + labs(title = "Power Consumption Over Time", x = "Time", y = "Power Consumption")+ theme_minimal()
+
+```
+
+
+```{r}
+
+#Mean model
+
+mean_power = mean(power_daily$Total)
+
+autoplot(power_ts) + labs( title = "Mean Model of Power Consumption", x = "Daily Time", y = "Power Consumption") + geom_hline(yintercept = mean_power, color = "green", size = 1) + theme_classic()
+
+
+
+```
+
+
+
+
+```{r}
+
+
+train <- window(power_ts, start = c(2017,1), end = c(2017, 300) ) 
+validation <- window(power_ts, start = c(2017, 301))
+
+autoplot(train) + autolayer(validation, color = "blue")
+
+
+```
+
+```{r}
+
+
+
+#Create a mean model AND forecast the next observation; since dealing with day will forecast as 24 observations
+
+
+mean_daily <- meanf(train, h = 24) # mean model
+
+naive_daily <- rwf(train, h = 24) 
+
+seasonal_naive_daily <- snaive(train, h=24) # will take last complete season and forecast that to the future
+
+#If not too sure what the data is telling us, we can do just forecast and the default is exponential smoothing (takes moving average and sues that to calculate the predictions)
+
+helpme <- forecast(train, h= 24)
+
+#To zoom in, truncate using coordinates
+
+autoplot(train) + autolayer(seasonal_naive_daily, color = "green", PI = F) + autolayer(validation, color = "red") + labs(title = "Time Series of Power Consumption", x = "Time", y = "Power Consumption") + coord_cartesian(xlim = c(2030, 2045))
+
+
+#Test performance
+
+accuracy(mean_daily, validation)
+accuracy(naive_daily, validation)
+accuracy(seasonal_naive_daily, validation)
+accuracy(helpme, validation)
+
+
+
+```
+
+
+
+```{r}
+
+#Naive Model; its just going to take the very last value and assume that is going to be the value moving forward for now on
+
+#We are going to predict so many steps into the future; by default H=10, H means future (number of instance into the future); level is the confidence interval and if left alone it gives both 80% and 95% confidence interval but can change that
+
+n_model <- naive(train, h=65, level = 95)
+
+n_model
+
+autoplot(train) + autolayer(n_model, color = "#006d2c", series = "Naive") + autolayer(validation, color = "blue", series = "Actual")
+
+#green line is naive model; the cone shape is the confidence interval (the further we go out into the future, the less confident we are in our predictions)
+
+#This is not a good model because we see it constant when the actual is decreasing. So lets try a different model
+
+
+```
+
+
+```{r}
+
+#Seasonal Naive: Like the naive model except it is seasonal; seasonal naive will take the last season value
+
+sn_model <- snaive(train, h=65, level = 95)
+
+autoplot(train) + autolayer(sn_model, color = "#006d2c", series = "Seasonal Naive") + autolayer(validation, color = "blue", series = "Actual")
+
+```
+
+
+```{r}
+
+#Time Series Linear Model: covers trend and seasonality
+#Season trend model
+
+#With linear model we have our particular variable (so our outcome variable) and then we have our predictor variables determining that one
+
+#Here we just have our time series
+
+st_model <- tslm(train ~ trend + season)
+
+summary(st_model)
+
+st_forecast <- forecast(st_model, h=1)
+
+```
+
+
+```{r}
+
+#RMSE: all models will be wrong; it will never be perfect or match; we want our models to be close as possible, less wrong (We want the lowest value for RMSE; for that model, we will be off by [RMSE value] number of transactions)
+
+accuracy(n_model)
+accuracy(st_model)
+accuracy(sn_model)
+
+
+#In the book, shows you as well
+
+#residuals means errors; This is the difference between the forecasted values and the actual values
+
+#If want to make mean absolute error (will not work if there is an NA)
+
+mean(abs(n_model$residuals), na.rm =T )
+
+
+#Root mean squared error
+
+sqrt(mean(n_model$residuals^2, na.rm = T))
+
+#You would use this to determine which of these models is a better model for forecasting because the lower the value, the closer it is going to be to the true value
+
+#RMSE pertains to your dataset; two different RMSE from different instances/datasets will be different
+
+
+
+```
+
+
+```{r}
+
+#Ensemble Models: Using multiple models to basically create a supermodel; Powerful; Can weigh the models (most accurate have more weight); helps to eliminate boas and not overfit your data
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
