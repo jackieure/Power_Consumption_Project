@@ -157,8 +157,111 @@ autoplot(pc_ts3_daily) +
 
 ```
 All Three zones have similar trending path- Power consumption increases up until it reaches a peak followed by a decline. Looks like there's some seasonlity.There are some sharp declines on random days- perhaps indicators of power outages or something
-```{r}
 
+```{r}
+#Train Test Split
+
+X <- pc_df[ , c("Temperature", "Humidity", "Wind Speed", "general diffuse flows", "diffuse flows", "Date")] 
+head(X)
+
+y1 <- pc_df$`Zone 1 Power Consumption`
+y2 <- pc_df$`Zone 2  Power Consumption`
+y3 <- pc_df$`Zone 3  Power Consumption`
+
+#Zone 1 Splitting:
+nTotal1 <- length(y1)
+nValid1 <- 75
+nTrain1 <- nTotal1 - nValid1
+xTrain1 <- X[1:nTrain1, ]
+yTrain1 <- y1[1:nTrain1]
+xValid1 <- X[(nTrain1 + 1):nTotal1, ]
+yValid1 <- y1[(nTrain1 + 1):nTotal1]
+
+yTrain1.ts <- ts(yTrain1, start = c(2017, 1), end= c(2017, 289), frequency = 365)
+yValid1.ts <- ts(yTrain1, start = c(2017, 290), end= c(2017, 364),frequency = 365)
+
+#Zone 2 Splitting:
+nTotal2 <- length(y2)
+nValid2 <- 75
+nTrain2 <- nTotal2 - nValid2
+xTrain2 <- X[1:nTrain2, ]
+yTrain2 <- y2[1:nTrain2]
+xValid2 <- X[(nTrain1 + 1):nTotal2, ]
+yValid2 <- y2[(nTrain1 + 1):nTotal2]
+
+
+yTrain2.ts <- ts(yTrain2, start = c(2017, 1), end= c(2017, 289), frequency = 365)
+yValid2.ts <- ts(yTrain2, start = c(2017, 290), end= c(2017, 364),frequency = 365)
+
+#Zone 3 Splitting:
+nTotal3 <- length(y3)
+nValid3 <- 75
+nTrain3 <- nTotal3 - nValid3
+xTrain3 <- X[1:nTrain3, ]
+yTrain3 <- y3[1:nTrain3]
+xValid3 <- X[(nTrain1 + 1):nTotal3, ]
+yValid2 <- y3[(nTrain1 + 1):nTotal3]
+
+
+yTrain3.ts <- ts(yTrain3, start = c(2017, 1), end= c(2017, 289), frequency = 365)
+yValid3.ts <- ts(yTrain3, start = c(2017, 290), end= c(2017, 364),frequency = 365)
 ```
+Modeling Zone 1:
+
+Holt Winters:
+```{r}
+#Holt Winters Exponential Smoothing
+
+#Zone 1
+pc1_holt.model <- ets(yTrain1.ts, model = "ZAA", alpha = .2, gamma = .05)
+
+pc1_holt.forecast <- forecast(pc1_holt.model, h = 75, level = c(.95))
+
+accuracy(pc1_holt.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_holt.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast- Holt Winters",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+```
+
+Linear Modeling:
+```{r}
+# Linear:
+pc1_lm <- tslm(yTrain1.ts ~ trend)
+
+pc1_lm.forecast <- forecast(pc1_lm, h = nValid1, level=0)
+
+accuracy(pc1_lm.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_lm.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Linear Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+```
+```{r}
+#Modeling with exponential trend:
+pc1_expo.trend <- tslm(yTrain1.ts ~ trend, lambda = 1)
+pc1_expo.forecast <- forecast(pc1_expo.trend, h =nValid1, level=0)
+
+accuracy(pc1_expo.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_expo.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Expo Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
 ```
 
