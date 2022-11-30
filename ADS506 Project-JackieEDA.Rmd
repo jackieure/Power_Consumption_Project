@@ -1,4 +1,3 @@
----
 title: "ADS506 Team 4 Project"
 author: "Jacqueline Urenda"
 date: "`r Sys.Date()`"
@@ -158,31 +157,50 @@ autoplot(pc_ts3_daily) +
 ```
 All Three zones have similar trending path- Power consumption increases up until it reaches a peak followed by a decline. Looks like there's some seasonlity.There are some sharp declines on random days- perhaps indicators of power outages or something
 
+Creating New Variables and DataframesL
 ```{r}
-#Train Test Split
+#Create day of the week column
+pc_df$DOW <- wday(pc_df$Date, label = TRUE)
+#Create month column 
+pc_df$Month <- month(pc_df$Date, label = TRUE)
+#Do we need working and non-working columns? why weekday seem to consume more energy than weekend? Are the zones belong to industrial zones?
+#create new frames with values in Month, DOW converted to dummies
+Month.dummies <- model.matrix(~ 0 + Month, data = pc_df)
+DOW.dummies <- model.matrix(~ 0 + DOW, data = pc_df)
+#Rename each dummies column without "Month", "Dow" in front 
+#colnames(Month.dummies) <- gsub("Month", "", colnames(Month.dummies)) #Replace "Month" with none-character
+colnames(DOW.dummies) <- gsub("DOW", "", colnames(DOW.dummies))
+#Combine the data frames
+#X <- as.data.frame(cbind(daily[,2:6], Month.dummies[, -12], DOW.dummies[, -7]))
+X <- as.data.frame(cbind(pc_df[,2:6], DOW.dummies[, -3]))
 
-X <- pc_df[ , c("Temperature", "Humidity", "Wind Speed", "general diffuse flows", "diffuse flows", "Date")] 
 head(X)
 
-y1 <- pc_df$`Zone 1 Power Consumption`
-y2 <- pc_df$`Zone 2  Power Consumption`
-y3 <- pc_df$`Zone 3  Power Consumption`
+
+y1 <- pc_zone1_daily$Total
+y2 <- pc_zone2_daily$Total
+y3 <- pc_zone3_daily$Total
+
+summary(y1)
 
 #Zone 1 Splitting:
 nTotal1 <- length(y1)
-nValid1 <- 75
+nValid1 <- 56
 nTrain1 <- nTotal1 - nValid1
 xTrain1 <- X[1:nTrain1, ]
 yTrain1 <- y1[1:nTrain1]
 xValid1 <- X[(nTrain1 + 1):nTotal1, ]
 yValid1 <- y1[(nTrain1 + 1):nTotal1]
 
-yTrain1.ts <- ts(yTrain1, start = c(2017, 1), end= c(2017, 289), frequency = 365)
-yValid1.ts <- ts(yTrain1, start = c(2017, 290), end= c(2017, 364),frequency = 365)
+#yTrain1.ts <- ts(yTrain1, start = c(2017, 1), end= c(2017, 304), frequency = 364)
+#yValid1.ts <- ts(yTrain1, start = c(2017, 305), end= c(2017, 364),frequency = 364)
+
+yTrain1.ts <- ts(yTrain1, start = c(1, 1), end= c(44, 7), frequency = 7)
+yValid1.ts <- ts(yValid1, start = c(45, 1), end= c(52, 7), frequency = 7)
 
 #Zone 2 Splitting:
 nTotal2 <- length(y2)
-nValid2 <- 75
+nValid2 <- 60
 nTrain2 <- nTotal2 - nValid2
 xTrain2 <- X[1:nTrain2, ]
 yTrain2 <- y2[1:nTrain2]
@@ -190,12 +208,12 @@ xValid2 <- X[(nTrain1 + 1):nTotal2, ]
 yValid2 <- y2[(nTrain1 + 1):nTotal2]
 
 
-yTrain2.ts <- ts(yTrain2, start = c(2017, 1), end= c(2017, 289), frequency = 365)
-yValid2.ts <- ts(yTrain2, start = c(2017, 290), end= c(2017, 364),frequency = 365)
+yTrain2.ts <- ts(yTrain2, start = c(2017, 1), end= c(2017, 304), frequency = 364)
+yValid2.ts <- ts(yTrain2, start = c(2017, 305), end= c(2017, 364),frequency = 364)
 
 #Zone 3 Splitting:
 nTotal3 <- length(y3)
-nValid3 <- 75
+nValid3 <- 60
 nTrain3 <- nTotal3 - nValid3
 xTrain3 <- X[1:nTrain3, ]
 yTrain3 <- y3[1:nTrain3]
@@ -203,9 +221,11 @@ xValid3 <- X[(nTrain1 + 1):nTotal3, ]
 yValid2 <- y3[(nTrain1 + 1):nTotal3]
 
 
-yTrain3.ts <- ts(yTrain3, start = c(2017, 1), end= c(2017, 289), frequency = 365)
-yValid3.ts <- ts(yTrain3, start = c(2017, 290), end= c(2017, 364),frequency = 365)
+yTrain3.ts <- ts(yTrain3, start = c(2017, 1), end= c(2017, 304), frequency = 364)
+yValid3.ts <- ts(yTrain3, start = c(2017, 305), end= c(2017, 364),frequency = 364)
 ```
+
+
 Modeling Zone 1:
 
 Holt Winters:
@@ -215,7 +235,7 @@ Holt Winters:
 #Zone 1
 pc1_holt.model <- ets(yTrain1.ts, model = "ZAA", alpha = .2, gamma = .05)
 
-pc1_holt.forecast <- forecast(pc1_holt.model, h = 75, level = c(.95))
+pc1_holt.forecast <- forecast(pc1_holt.model, h = nValid1, level = c(.95))
 
 accuracy(pc1_holt.forecast, yValid1.ts)
 
@@ -228,7 +248,6 @@ autoplot(yTrain1.ts, color = "black") +
        y = "Power Consumption (kW)")+
   theme_classic()
 ```
-
 Linear Modeling:
 ```{r}
 # Linear:
@@ -247,6 +266,8 @@ autoplot(yTrain1.ts, color = "black") +
        y = "Power Consumption (kW)")+
   theme_classic()
 ```
+
+
 ```{r}
 #Modeling with exponential trend:
 pc1_expo.trend <- tslm(yTrain1.ts ~ trend, lambda = 1)
@@ -264,4 +285,38 @@ autoplot(yTrain1.ts, color = "black") +
   theme_classic()
 
 ```
+```{r}
+#Naive forecast 
+naive <- naive(yTrain1.ts, h=nValid1)
+accuracy(naive, yValid1.ts)
 
+
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(naive, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast- Naive",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+```
+```{r}
+#Neural Network:
+
+pc1.nnetar <- nnetar(yTrain1.ts)
+summary(pc1.nnetar$model[[1]])
+pc.1.nnetar.pred <- forecast(pc1.nnetar, h=nValid)
+
+accuracy(pc.1.nnetar.pred, yValid1.ts)
+
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc.1.nnetar.pred, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Expo Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+```
