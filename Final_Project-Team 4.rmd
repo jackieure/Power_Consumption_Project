@@ -1,0 +1,562 @@
+---
+title: "Final Team Project - Team 4"
+author: "Uyen Pham, Jacqueline Urenda, and Renetta Nelson"
+date: "December 5, 2022"
+output: pdf_document
+---
+
+
+
+# Loading Libraries
+
+```{r, message=FALSE}
+
+library(tidyverse)
+library(fpp2)
+library(readr)
+library(forecast)
+library(ggplot2)
+library(gridExtra)
+library(reshape2)
+library(dplyr)
+library(lubridate)
+library(RColorBrewer)
+library(corrplot)
+set.seed(506)
+
+
+```
+
+# Loading the Dataset 
+
+```{r}
+
+#Load the data 
+power <- read_csv("Tetuan City power consumption.csv", 
+    col_types = cols(DateTime = col_datetime(format = "%m/%d/%Y %H:%M")))
+
+```
+
+# Data Transformation
+
+The columns in the data set are renamed. This was done for easy reference to variables.
+
+```{r}
+
+colnames(power) <- c('DateTime', 'Temperature', 'Humidity','Wind_Speed', 
+                     'Gen_Diffuse_Flows', 'Diffuse_Flows', 'Zone1', 'Zone2', 
+                     'Zone3')
+head(power)
+
+print("Missing Values: ")
+sum(is.na(power)) #no missing values
+
+```
+
+
+# Statistical Data Analysis
+
+The data set consists of 364 days total, taking data from January 1, 2017 to December 30, 2017. The time window is every ten minutes. The temperature is measured in Celsius with a mean and median around 18 degrees. The humidity column displays the percentage of the humidity. The average humidity is 68.26%. The wind speed is measured in km/h, and the power consumption is measured in KiloWatts.
+
+
+```{r}
+
+summary(power)
+
+```
+
+
+# Exploratory Data Analysis
+
+
+## Histograms
+
+Temperature appears to have a normal distribution. Humidity is left skewed- as mentioned in summary statistics, humidity is pretty high. Wind Speed is interesting as well, looks like either little to low wind speeds or ~4.5 km/h wind speed . General and Diffuse flows are right skewed. Flow tends to be on a lower level. Zone 1 and Zone 2 have a normal distribution. Zone 2 looks normal as well but looks a bit right skewed. 
+
+```{r}
+par(mfrow=c(3,3))
+hist(power$Temperature, main="Histogram of Temperature", col = "blue",
+     xlab = "Temperature")
+hist(power$Humidity, main="Histogram of Humidity", col = "blue",
+     xlab = "Humidity")
+hist(power$Wind_Speed, main="Histogram of Wind Speed", col = "blue",
+     xlab = "Wind Speed")
+hist(power$Gen_Diffuse_Flows, main="Histogram of General Diffuse",
+     col = "blue", xlab = "General Diffuse Flow")
+hist(power$Diffuse_Flows, main="Histogram of Diffuse", col = "blue",
+     xlab ="Diffuse Flow")
+hist(power$Zone1, main="Histogram of Zone 1", col = "blue",
+     xlab ="Zone 1 Power Consumption")
+hist(power$Zone2, main="Histogram of Zone 2", col = "blue", 
+     xlab ="Zone 2 Power Consumption")
+hist(power$Zone3, main="Histogram of Zone 3", col = "blue", 
+     xlab ="Zone 3 Power Consumption")
+```
+
+## Comparisons of the Power Consumption Zones
+
+Looking at all three zone's power consumption, it looks like Zone 1 has more power consumption than both Zone 2 and Zone 3. 
+
+```{r}
+plot(power$Zone1,
+     type="l",
+     col =2,
+     ylim = c(5000,55000),
+     xlab = "Date",
+     ylab = "Power Consumption (kW)")
+lines(power$Zone2,
+       type="l",
+     col =3)
+lines(power$Zone3,
+       type="l",
+     col =4)
+legend("topright", c("Zone 1", "Zone 2", "Zone 3"), lty = 1, col = 2:4)
+```
+
+
+## Correlations
+
+All three zones have strong correlations between each other. Temperature and wind speed have a correlation of 0.48. Humidity and temperature have a moderate but noticeable correlation as well. General diffuse flows and Diffuse flows have a correlation of 0.56. Temperature seems to show highest correlation with power consumption.
+
+
+```{r}
+
+corr <- round(x = cor(power[, 2:9]), digits = 2)
+
+corrplot(corr, method = "color", outline = T, addgrid.col = "darkgray", 
+         order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,
+         cl.pos = "b", tl.col = "indianred4", tl.cex = .75, cl.cex = .75,
+         addCoef.col = "white", number.digits = 2, number.cex = 0.5, col =
+           colorRampPalette(c("darkred","white","midnightblue"))(100))
+```
+
+
+# Monthly Power Consumption
+
+It is more interesting to explore the daily data, since we would be more interesting to forecast the power each Zone needed daily, so the power providers could increase or decrease power supply to meet the demand.
+
+
+```{r Monthly}
+
+power_monthly <- power %>% group_by(Month = format(DateTime, "%Y - %m")) %>% 
+  summarise(Total = sum(Zone1))
+
+ggplot(power_monthly, aes(x = Month, y = Total, group = 1)) + geom_line(size = 1) +
+  theme_classic()
+
+```
+
+
+# Daily Power Consumption
+
+All three zones for power consumption have similar trending paths. The power consumption increases up until it reaches a peak followed by a decline. There appears to be some seasonality. There are some sharp declines on random days, perhaps indicating a presence of power outages. Zone 1 and Zone 2 seem to have big daily fluctuation while Zone 3 seem less fluctuated. Also, They all seem to peak at around May to September which could be due to more power consumption during Summer time.
+
+```{r Daily}
+power$Date <- as.Date(power$DateTime, format = "%m/%d/%Y")
+power.daily.z1 <- power %>% group_by(Date) %>% summarise(Total= sum(Zone1))
+power.daily.z2 <- power %>% group_by(Date) %>% summarise(Total= sum(Zone2))
+power.daily.z3 <- power %>% group_by(Date) %>% summarise(Total= sum(Zone3))
+
+p1<- ggplot(power.daily.z1, aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Daily Power Consumption in Zone 1",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p2 <- ggplot(power.daily.z2, aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Daily Power Consumption in Zone 2",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p3 <- ggplot(power.daily.z3, aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Daily Power Consumption in Zone 3",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p1, p2, p3, ncol = 2)
+```
+
+# Mean Power Consumption
+
+```{r}
+
+#Mean model
+
+power.daily.z1.ts1 <-ts(power.daily.z1$Total) 
+
+mean_power = mean(power.daily.z1$Total)
+
+autoplot(power.daily.z1.ts1) + labs( title = "Mean Model of Power Consumption",
+                                     x = "Daily Time", y = "Power Consumption")+
+  geom_hline(yintercept = mean_power, color = "green", size = 1) + theme_classic()
+
+
+
+```
+
+
+# Random Walk
+
+Autocorrelation show strong correlation at multiple lag showing weekly seasonality (~0.02, 0.04, 0.06 of 365 days).
+
+```{r}
+#Convert daily power in 3 zones into time series object
+power.daily.z1.ts <- ts(power.daily.z1$Total)
+power.daily.z2.ts <- ts(power.daily.z2$Total)
+power.daily.z3.ts <- ts(power.daily.z3$Total)
+
+#Compute and plot the autocorrelation and produce an ACF plot
+par(mar=c(5,5,5,2)) #To adjust the plot size and not get the title cut off
+acf_value1 <- Acf(power.daily.z1.ts, lag.max=1, 
+                  main='Zone 1 Autocorrelation Plot with Lag-1')
+acf_value2 <- Acf(power.daily.z2.ts, lag.max=1, 
+                  main='Zone 2 Autocorrelation Plot with Lag-1')
+acf_value3 <- Acf(power.daily.z3.ts, lag.max=1, 
+                  main='Zone 3 Autocorrelation Plot with Lag-1')
+```
+
+```{r}
+print(acf_value1)
+print(acf_value2)
+print(acf_value3)
+```
+
+
+```{r}
+#compute and plot at the autocorrelation of the daily data
+par(mar=c(5,5,5,2))
+acf_value <- acf(power.daily.z1.ts)
+#acf_value <- acf(zone1.min.ts)
+```
+
+
+# First Three Weeks of the Different Zones
+
+The following shows the first few weeks of power consumption for all the zones. Zone 1 and 2 starts low on Sunday, goes high during the weekdays, and then low again on Saturday. Zone 3 seems to be have the opposite behavior and the difference between days are less pronounced. 
+
+```{r zoom in zone 1}
+#Zoom in the first 3 weeks of Zone 1
+ggplot(power.daily.z1[0:21, ], aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Zone 1 Power Consumption",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+  #coord_cartesian(xlim = c(1, 14))
+```
+
+
+
+```{r zoom in zone 2}
+#Zoom in the first 3 weeks of Zone 1
+ggplot(power.daily.z2[0:21, ], aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Zone 2 Power Consumption",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+  #coord_cartesian(xlim = c(1, 14))
+```
+
+
+```{r zoom in zone 3}
+#Zoom in the first 3 weeks of Zone 3
+ggplot(power.daily.z3[0:21, ], aes(x = Date, y = Total)) +
+  geom_line(size = 0.5, color = "blue") +
+  labs(title = "Zone 3 Power Consumption",
+       x = "Daily",
+       y = "Power Consumption") +
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+  #coord_cartesian(xlim = c(1, 14))
+```
+
+#Partitioning the Data
+
+
+```{r Create new variables and dataframes}
+
+#Convert power data frame to daily data including all the variables
+daily <- power[ ,2:10] %>% group_by(Date) %>% 
+  summarise(across(everything(), sum), .groups = 'drop')
+
+#Create day of the week column
+daily$DOW <- wday(daily$Date, label = TRUE)
+
+#Create month column 
+daily$Month <- month(daily$Date, label = TRUE)
+
+#Create new frames with values in Month, DOW converted to dummies
+DOW.dummies <- model.matrix(~ 0 + DOW, data = daily)
+
+#Rename each dummies column without "Month", "Dow" in front 
+colnames(DOW.dummies) <- gsub("DOW", "", colnames(DOW.dummies))
+
+#Combine the data frames
+X <- as.data.frame(cbind(daily[,2:6], DOW.dummies[, -3]))
+
+#Create y series with power values from daily data frame for zone 1
+y1 <- daily$Zone1
+
+#Split data 
+nTotal <- length(y1) 
+nValid <- 56
+nTrain <- nTotal - nValid
+xTrain <- X[1:nTrain, ]
+xValid <- X[(nTrain + 1):nTotal, ]
+yTrain1 <- y1[1:nTrain] # Zone 1
+yValid1 <- y1[(nTrain + 1):nTotal]
+
+#Convert y train and validation into time series object
+yTrain1.ts <- ts(yTrain1, start = c(1, 1), end= c(44, 7), frequency = 7)
+yValid1.ts <- ts(yValid1, start = c(45, 1), end= c(52, 7), frequency = 7)
+
+autoplot(yTrain1.ts ) + autolayer(yValid1.ts, color = "blue") + theme_classic() + 
+  labs(title = "Training and Validation Sets", y = "Power Consumption (kW)")
+
+```
+
+# Decomposition of the Time Series
+
+```{r}
+
+stl.run <- stl(yTrain1.ts, s.window = "periodic")
+plot(stl.run)
+```
+
+# Modeling
+
+## Naive Forecast
+
+```{r}
+
+naive <- naive(yTrain1.ts, h=nValid)
+accuracy(naive, yValid1.ts)
+
+
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(naive, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast- Naive",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+```
+
+
+## Seasonal Naive Forecast
+
+```{r}
+
+sn_model <- snaive(yTrain1.ts, h=nValid, level = 95)
+
+autoplot(yTrain1.ts) + autolayer(sn_model, color = "#006d2c", 
+                                 series = "Seasonal Naive") + 
+  autolayer(yValid1.ts, color = "blue", series = "Actual") + theme_classic() + 
+  labs(title = "Zone 1 Power Consumption Forecast - Seasonal Naive",
+       y = "Power Consumption (kW)")
+
+
+```
+
+
+## Holt Winters
+
+```{r}
+#Holt Winters Exponential Smoothing
+
+#Zone 1
+pc1_holt.model <- ets(yTrain1.ts, model = "ZAA", alpha = .2, gamma = .05)
+
+pc1_holt.forecast <- forecast(pc1_holt.model, h = nValid, level = c(.95))
+
+accuracy(pc1_holt.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_holt.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast- Holt Winters",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+```
+
+## TLSM 
+
+```{r TSLM model}
+#Create the formula for the regression model
+(formula <- as.formula(paste("yTrain1.ts", paste(c("trend", colnames(xTrain)),
+                                                 collapse = "+"), sep = "~")))
+#Train the regression model
+zone1.tslm <- tslm(formula, data = xTrain) #lamda=1 for linear trend
+#Predict valid set
+zone1.tslm.pred <- forecast(zone1.tslm, newdata = xValid)
+#Plot the prediction
+plot(zone1.tslm.pred, xlab = "Days", ylab = "Zone 1 Power Consumption")
+
+summary(zone1.tslm)
+
+accuracy(zone1.tslm.pred, yValid1.ts)
+```
+
+
+```{r}
+#Create the formula for the regression model
+
+#Train the regression model
+zone1.tslm.test <- tslm(yTrain1.ts ~ trend) #lamda=1 for linear trend
+#Predict valid set
+zone1.tslm.test.pred <- forecast(zone1.tslm.test, newdata = xValid)
+#Plot the prediction
+plot(zone1.tslm.test.pred, xlab = "Days", ylab = "Zone 1 Power Consumption")
+
+accuracy(zone1.tslm.test.pred, yValid1.ts)
+
+```
+
+
+```{r}
+tslm(yTrain1.ts ~ trend + I(trend^2) + I(sin(2*pi*trend/12))
++ I(cos(2*pi*trend/12)))
+```
+
+## Linear Model
+
+```{r}
+
+pc1_lm <- tslm(yTrain1.ts ~ trend)
+
+pc1_lm.forecast <- forecast(pc1_lm, h = nValid, level=0)
+
+accuracy(pc1_lm.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_lm.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Linear Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+```
+
+## Exponential Trend
+
+```{r}
+
+pc1_expo.trend <- tslm(yTrain1.ts ~ trend, lambda = 1)
+pc1_expo.forecast <- forecast(pc1_expo.trend, h =nValid, level=0)
+
+accuracy(pc1_expo.forecast, yValid1.ts)
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc1_expo.forecast, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Expo Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+```
+
+## Neural Network
+
+```{r}
+
+pc1.nnetar <- nnetar(yTrain1.ts)
+summary(pc1.nnetar$model[[1]])
+pc.1.nnetar.pred <- forecast(pc1.nnetar, h=nValid)
+
+accuracy(pc.1.nnetar.pred, yValid1.ts)
+
+
+#plot the forecast
+autoplot(yTrain1.ts, color = "black") + 
+  autolayer(pc.1.nnetar.pred, color = "red") +
+  autolayer(yValid1.ts, color = "blue") +
+  labs(title = "Zone 1 Power Consumption Forecast - Neural Network",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+```
+
+## Arima Model
+
+```{r}
+auto_model <- auto.arima(yTrain1.ts)
+auto_model
+
+
+par(mar=c(5,5,5,2))
+pacf(yTrain1.ts, lag.max =52)
+acf(yTrain1.ts, lag.max = 52)
+```
+
+
+
+
+```{r}
+#Take the difference for the training set and observe the autoregression
+yTrain1.lag1.ts <- diff(diff(diff(diff(yTrain1.ts, lag = 7))))
+plot(yTrain1.lag1.ts)
+
+par(mar=c(5,5,5,2))
+pacf(yTrain1.lag1.ts, lag.max =52)
+acf(yTrain1.lag1.ts, lag.max = 52)
+
+```
+
+```{r my Arima}
+predictor_train <- as.matrix(xTrain)
+#Run Arima model
+zone1.arima.model <- Arima(yTrain1, order = c(1,3,1), xreg =predictor_train )
+summary(zone1.arima.model)
+#Forecast on the test set
+predictors_test <- as.matrix(xValid)
+zone1.arima_predict <- forecast(zone1.arima.model, h = nValid, 
+                                xreg= predictors_test)
+zone1.arima_predict.ts <- ts(zone1.arima_predict$mean, start = c(45, 1),
+                             end= c(52,7), frequency = 7)
+
+accuracy(zone1.arima_predict.ts, yValid1.ts)
+
+```
+
+
+```{r}
+#plot the forecast
+autoplot(yTrain1.ts) + 
+  autolayer(zone1.arima_predict.ts, color = "red") +
+  autolayer(yValid1.ts, color = "gray") +
+  labs(title = "Zone 1 Power Consumption Forecast - ARIMA ",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme(plot.title=element_text(hjust=0.5)) 
+  #+coord_cartesian(xlim = c(, ))
+```
+
+
+
+
+
+
+
+
+
+
+
+
