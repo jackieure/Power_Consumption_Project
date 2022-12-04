@@ -18,7 +18,6 @@ Project Team Members:
 
 
 Methods Used:
-•	Inferential Statistics
 •	Predictive Modeling 
 •	Machine Learning
 •	Data Visualization 
