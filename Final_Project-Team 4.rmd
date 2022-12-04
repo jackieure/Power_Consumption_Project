@@ -15,7 +15,7 @@ library(tidyverse)
 library(fpp2)
 library(readr)
 library(forecast)
-library(ggplot2)
+library(ggplot2)=
 library(gridExtra)
 library(reshape2)
 library(dplyr)
@@ -180,23 +180,44 @@ p3 <- ggplot(power.daily.z3, aes(x = Date, y = Total)) +
        y = "Power Consumption") +
   theme_classic()+
   theme(plot.title=element_text(hjust=0.5))
-grid.arrange(p1, p2, p3, ncol = 2)
+grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
 # Mean Power Consumption
 
 ```{r}
 
-#Mean model
+#Mean model - Zone 1
 
 power.daily.z1.ts1 <-ts(power.daily.z1$Total) 
 
 mean_power = mean(power.daily.z1$Total)
 
-autoplot(power.daily.z1.ts1) + labs( title = "Mean Model of Power Consumption",
+autoplot(power.daily.z1.ts1) + labs( title = "Mean Model of Power Consumption - Zone 1",
                                      x = "Daily Time", y = "Power Consumption")+
   geom_hline(yintercept = mean_power, color = "green", size = 1) + theme_classic()
 
+
+#Mean Model - Zone 2
+
+power.daily.z2.ts1 <-ts(power.daily.z2$Total) 
+
+mean_power = mean(power.daily.z2$Total)
+
+autoplot(power.daily.z2.ts1) + labs( title = "Mean Model of Power Consumption - Zone 2",
+                                     x = "Daily Time", y = "Power Consumption")+
+  geom_hline(yintercept = mean_power, color = "green", size = 1) + theme_classic()
+
+
+#Mean Model - Zone 3
+
+power.daily.z3.ts1 <-ts(power.daily.z3$Total) 
+
+mean_power = mean(power.daily.z3$Total)
+
+autoplot(power.daily.z3.ts1) + labs( title = "Mean Model of Power Consumption - Zone 3",
+                                     x = "Daily Time", y = "Power Consumption")+
+  geom_hline(yintercept = mean_power, color = "green", size = 1) + theme_classic()
 
 
 ```
@@ -233,6 +254,18 @@ print(acf_value3)
 #compute and plot at the autocorrelation of the daily data
 par(mar=c(5,5,5,2))
 acf_value <- acf(power.daily.z1.ts)
+#acf_value <- acf(zone1.min.ts)
+
+
+#compute and plot at the autocorrelation of the daily data
+par(mar=c(5,5,5,2))
+acf_value <- acf(power.daily.z2.ts)
+#acf_value <- acf(zone1.min.ts)
+
+
+#compute and plot at the autocorrelation of the daily data
+par(mar=c(5,5,5,2))
+acf_value <- acf(power.daily.z3.ts)
 #acf_value <- acf(zone1.min.ts)
 ```
 
@@ -306,21 +339,53 @@ X <- as.data.frame(cbind(daily[,2:6], DOW.dummies[, -3]))
 
 #Create y series with power values from daily data frame for zone 1
 y1 <- daily$Zone1
+y2 <- daily$Zone2
+y3 <- daily$Zone3
 
 #Split data 
-nTotal <- length(y1) 
+nTotal <- length(y1)
+nTotal2 <- length(y2) 
+nTotal3 <- length(y3) 
+
 nValid <- 56
+
 nTrain <- nTotal - nValid
+nTrain2 <- nTotal2 - nValid
+nTrain3 <- nTotal3 - nValid
+
 xTrain <- X[1:nTrain, ]
+xTrain2 <- X[1:nTrain2, ]
+xTrain3 <- X[1:nTrain3, ]
+
 xValid <- X[(nTrain + 1):nTotal, ]
+xValid2 <- X[(nTrain2 + 1):nTotal2, ]
+xValid3 <- X[(nTrain3 + 1):nTotal3, ]
+
 yTrain1 <- y1[1:nTrain] # Zone 1
+yTrain2 <- y2[1:nTrain2] # Zone 2
+yTrain3 <- y3[1:nTrain3] # Zone 3
+
 yValid1 <- y1[(nTrain + 1):nTotal]
+yValid2 <- y2[(nTrain2 + 1):nTotal2]
+yValid3 <- y3[(nTrain3 + 1):nTotal3]
 
 #Convert y train and validation into time series object
 yTrain1.ts <- ts(yTrain1, start = c(1, 1), end= c(44, 7), frequency = 7)
 yValid1.ts <- ts(yValid1, start = c(45, 1), end= c(52, 7), frequency = 7)
 
+yTrain2.ts <- ts(yTrain2, start = c(1, 1), end= c(44, 7), frequency = 7)
+yValid2.ts <- ts(yValid2, start = c(45, 1), end= c(52, 7), frequency = 7)
+
+yTrain3.ts <- ts(yTrain3, start = c(1, 1), end= c(44, 7), frequency = 7)
+yValid3.ts <- ts(yValid3, start = c(45, 1), end= c(52, 7), frequency = 7)
+
 autoplot(yTrain1.ts ) + autolayer(yValid1.ts, color = "blue") + theme_classic() + 
+  labs(title = "Training and Validation Sets", y = "Power Consumption (kW)")
+
+autoplot(yTrain2.ts ) + autolayer(yValid2.ts, color = "blue") + theme_classic() + 
+  labs(title = "Training and Validation Sets", y = "Power Consumption (kW)")
+
+autoplot(yTrain3.ts ) + autolayer(yValid3.ts, color = "blue") + theme_classic() + 
   labs(title = "Training and Validation Sets", y = "Power Consumption (kW)")
 
 ```
@@ -331,6 +396,13 @@ autoplot(yTrain1.ts ) + autolayer(yValid1.ts, color = "blue") + theme_classic() 
 
 stl.run <- stl(yTrain1.ts, s.window = "periodic")
 plot(stl.run)
+
+stl.run <- stl(yTrain2.ts, s.window = "periodic")
+plot(stl.run)
+
+stl.run <- stl(yTrain3.ts, s.window = "periodic")
+plot(stl.run)
+
 ```
 
 # Modeling
@@ -352,6 +424,33 @@ autoplot(yTrain1.ts, color = "black") +
   theme_classic()
 
 
+naive <- naive(yTrain2.ts, h=nValid)
+accuracy(naive, yValid2.ts)
+
+
+autoplot(yTrain2.ts, color = "black") + 
+  autolayer(naive, color = "red") +
+  autolayer(yValid2.ts, color = "blue") +
+  labs(title = "Zone 2 Power Consumption Forecast- Naive",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+naive <- naive(yTrain3.ts, h=nValid)
+accuracy(naive, yValid3.ts)
+
+
+autoplot(yTrain3.ts, color = "black") + 
+  autolayer(naive, color = "red") +
+  autolayer(yValid3.ts, color = "blue") +
+  labs(title = "Zone 3 Power Consumption Forecast- Naive",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+
 ```
 
 
@@ -365,6 +464,24 @@ autoplot(yTrain1.ts) + autolayer(sn_model, color = "#006d2c",
                                  series = "Seasonal Naive") + 
   autolayer(yValid1.ts, color = "blue", series = "Actual") + theme_classic() + 
   labs(title = "Zone 1 Power Consumption Forecast - Seasonal Naive",
+       y = "Power Consumption (kW)")
+
+
+sn_model <- snaive(yTrain2.ts, h=nValid, level = 95)
+
+autoplot(yTrain2.ts) + autolayer(sn_model, color = "#006d2c", 
+                                 series = "Seasonal Naive") + 
+  autolayer(yValid2.ts, color = "blue", series = "Actual") + theme_classic() + 
+  labs(title = "Zone 2 Power Consumption Forecast - Seasonal Naive",
+       y = "Power Consumption (kW)")
+
+
+sn_model <- snaive(yTrain3.ts, h=nValid, level = 95)
+
+autoplot(yTrain3.ts) + autolayer(sn_model, color = "#006d2c", 
+                                 series = "Seasonal Naive") + 
+  autolayer(yValid3.ts, color = "blue", series = "Actual") + theme_classic() + 
+  labs(title = "Zone 3 Power Consumption Forecast - Seasonal Naive",
        y = "Power Consumption (kW)")
 
 
@@ -392,12 +509,45 @@ autoplot(yTrain1.ts, color = "black") +
        y = "Power Consumption (kW)")+
   theme_classic()
 
+#Zone 2
+pc2_holt.model <- ets(yTrain2.ts, model = "ZAA", alpha = .2, gamma = .05)
+
+pc2_holt.forecast <- forecast(pc2_holt.model, h = nValid, level = c(.95))
+
+accuracy(pc2_holt.forecast, yValid2.ts)
+
+#plot the forecast
+autoplot(yTrain2.ts, color = "black") + 
+  autolayer(pc2_holt.forecast, color = "red") +
+  autolayer(yValid2.ts, color = "blue") +
+  labs(title = "Zone 2 Power Consumption Forecast- Holt Winters",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+#Zone 3
+pc3_holt.model <- ets(yTrain3.ts, model = "ZAA", alpha = .2, gamma = .05)
+
+pc3_holt.forecast <- forecast(pc3_holt.model, h = nValid, level = c(.95))
+
+accuracy(pc3_holt.forecast, yValid3.ts)
+
+#plot the forecast
+autoplot(yTrain3.ts, color = "black") + 
+  autolayer(pc3_holt.forecast, color = "red") +
+  autolayer(yValid3.ts, color = "blue") +
+  labs(title = "Zone 3 Power Consumption Forecast- Holt Winters",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
 ```
 
 ## TLSM 
 
 ```{r TSLM model}
-#Create the formula for the regression model
+
+#Create the formula for the regression model - Zone 1
 (formula <- as.formula(paste("yTrain1.ts", paste(c("trend", colnames(xTrain)),
                                                  collapse = "+"), sep = "~")))
 #Train the regression model
@@ -410,11 +560,45 @@ plot(zone1.tslm.pred, xlab = "Days", ylab = "Zone 1 Power Consumption")
 summary(zone1.tslm)
 
 accuracy(zone1.tslm.pred, yValid1.ts)
+
+
+#Create the formula for the regression model - Zone 2
+
+(formula <- as.formula(paste("yTrain2.ts", paste(c("trend", colnames(xTrain2)),
+                                                 collapse = "+"), sep = "~")))
+#Train the regression model
+zone2.tslm <- tslm(formula, data = xTrain2) #lamda=1 for linear trend
+#Predict valid set
+zone2.tslm.pred <- forecast(zone2.tslm, newdata = xValid2)
+#Plot the prediction
+plot(zone2.tslm.pred, xlab = "Days", ylab = "Zone 2 Power Consumption")
+
+summary(zone2.tslm)
+
+accuracy(zone2.tslm.pred, yValid2.ts)
+
+
+#Create the formula for the regression model - Zone 3
+
+(formula <- as.formula(paste("yTrain3.ts", paste(c("trend", colnames(xTrain3)),
+                                                 collapse = "+"), sep = "~")))
+#Train the regression model
+zone3.tslm <- tslm(formula, data = xTrain3) #lamda=1 for linear trend
+#Predict valid set
+zone3.tslm.pred <- forecast(zone3.tslm, newdata = xValid3)
+#Plot the prediction
+plot(zone3.tslm.pred, xlab = "Days", ylab = "Zone 3 Power Consumption")
+
+summary(zone3.tslm)
+
+accuracy(zone3.tslm.pred, yValid3.ts)
+
+
 ```
 
 
 ```{r}
-#Create the formula for the regression model
+#Create the formula for the regression model - Zone 1
 
 #Train the regression model
 zone1.tslm.test <- tslm(yTrain1.ts ~ trend) #lamda=1 for linear trend
@@ -425,12 +609,49 @@ plot(zone1.tslm.test.pred, xlab = "Days", ylab = "Zone 1 Power Consumption")
 
 accuracy(zone1.tslm.test.pred, yValid1.ts)
 
+
+
+#Train the regression model - Zone 2
+zone2.tslm.test <- tslm(yTrain2.ts ~ trend) #lamda=1 for linear trend
+#Predict valid set
+zone2.tslm.test.pred <- forecast(zone2.tslm.test, newdata = xValid2)
+#Plot the prediction
+plot(zone2.tslm.test.pred, xlab = "Days", ylab = "Zone 2 Power Consumption")
+
+accuracy(zone2.tslm.test.pred, yValid2.ts)
+
+
+
+#Train the regression model - Zone 3
+zone3.tslm.test <- tslm(yTrain3.ts ~ trend) #lamda=1 for linear trend
+#Predict valid set
+zone3.tslm.test.pred <- forecast(zone3.tslm.test, newdata = xValid3)
+#Plot the prediction
+plot(zone3.tslm.test.pred, xlab = "Days", ylab = "Zone 3 Power Consumption")
+
+accuracy(zone3.tslm.test.pred, yValid3.ts)
+
 ```
 
 
 ```{r}
+
+# Zone 1
+
 tslm(yTrain1.ts ~ trend + I(trend^2) + I(sin(2*pi*trend/12))
 + I(cos(2*pi*trend/12)))
+
+# Zone 2
+
+tslm(yTrain2.ts ~ trend + I(trend^2) + I(sin(2*pi*trend/12))
++ I(cos(2*pi*trend/12)))
+
+# Zone 3
+
+tslm(yTrain3.ts ~ trend + I(trend^2) + I(sin(2*pi*trend/12))
++ I(cos(2*pi*trend/12)))
+
+
 ```
 
 ## Linear Model
@@ -451,6 +672,41 @@ autoplot(yTrain1.ts, color = "black") +
        x = "Date",
        y = "Power Consumption (kW)")+
   theme_classic()
+
+
+pc2_lm <- tslm(yTrain2.ts ~ trend)
+
+pc2_lm.forecast <- forecast(pc2_lm, h = nValid, level=0)
+
+accuracy(pc2_lm.forecast, yValid2.ts)
+
+#plot the forecast
+autoplot(yTrain2.ts, color = "black") + 
+  autolayer(pc2_lm.forecast, color = "red") +
+  autolayer(yValid2.ts, color = "blue") +
+  labs(title = "Zone 2 Power Consumption Forecast - Linear Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+
+pc3_lm <- tslm(yTrain3.ts ~ trend)
+
+pc3_lm.forecast <- forecast(pc3_lm, h = nValid, level=0)
+
+accuracy(pc3_lm.forecast, yValid3.ts)
+
+#plot the forecast
+autoplot(yTrain3.ts, color = "black") + 
+  autolayer(pc3_lm.forecast, color = "red") +
+  autolayer(yValid3.ts, color = "blue") +
+  labs(title = "Zone 3 Power Consumption Forecast - Linear Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
 ```
 
 ## Exponential Trend
@@ -470,6 +726,38 @@ autoplot(yTrain1.ts, color = "black") +
        x = "Date",
        y = "Power Consumption (kW)")+
   theme_classic()
+
+
+pc2_expo.trend <- tslm(yTrain2.ts ~ trend, lambda = 1)
+pc2_expo.forecast <- forecast(pc2_expo.trend, h =nValid, level=0)
+
+accuracy(pc2_expo.forecast, yValid2.ts)
+
+#plot the forecast
+autoplot(yTrain2.ts, color = "black") + 
+  autolayer(pc2_expo.forecast, color = "red") +
+  autolayer(yValid2.ts, color = "blue") +
+  labs(title = "Zone 2 Power Consumption Forecast - Expo Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+
+pc3_expo.trend <- tslm(yTrain3.ts ~ trend, lambda = 1)
+pc3_expo.forecast <- forecast(pc3_expo.trend, h =nValid, level=0)
+
+accuracy(pc3_expo.forecast, yValid3.ts)
+
+#plot the forecast
+autoplot(yTrain3.ts, color = "black") + 
+  autolayer(pc3_expo.forecast, color = "red") +
+  autolayer(yValid3.ts, color = "blue") +
+  labs(title = "Zone 3 Power Consumption Forecast - Expo Model",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
 
 ```
 
@@ -492,11 +780,52 @@ autoplot(yTrain1.ts, color = "black") +
        x = "Date",
        y = "Power Consumption (kW)")+
   theme_classic()
+
+
+
+pc2.nnetar <- nnetar(yTrain2.ts)
+summary(pc2.nnetar$model[[1]])
+pc.2.nnetar.pred <- forecast(pc2.nnetar, h=nValid)
+
+accuracy(pc.2.nnetar.pred, yValid2.ts)
+
+
+#plot the forecast
+autoplot(yTrain2.ts, color = "black") + 
+  autolayer(pc.2.nnetar.pred, color = "red") +
+  autolayer(yValid2.ts, color = "blue") +
+  labs(title = "Zone 2 Power Consumption Forecast - Neural Network",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
+
+pc3.nnetar <- nnetar(yTrain3.ts)
+summary(pc3.nnetar$model[[1]])
+pc.3.nnetar.pred <- forecast(pc3.nnetar, h=nValid)
+
+accuracy(pc.3.nnetar.pred, yValid3.ts)
+
+
+#plot the forecast
+autoplot(yTrain3.ts, color = "black") + 
+  autolayer(pc.3.nnetar.pred, color = "red") +
+  autolayer(yValid3.ts, color = "blue") +
+  labs(title = "Zone 3 Power Consumption Forecast - Neural Network",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme_classic()
+
+
 ```
 
 ## Arima Model
 
 ```{r}
+
+# Zone 1
+
 auto_model <- auto.arima(yTrain1.ts)
 auto_model
 
@@ -504,13 +833,34 @@ auto_model
 par(mar=c(5,5,5,2))
 pacf(yTrain1.ts, lag.max =52)
 acf(yTrain1.ts, lag.max = 52)
+
+# Zone 2
+
+auto_model2 <- auto.arima(yTrain2.ts)
+auto_model2
+
+
+par(mar=c(5,5,5,2))
+pacf(yTrain2.ts, lag.max =52)
+acf(yTrain2.ts, lag.max = 52)
+
+# Zone 3
+
+auto_model3 <- auto.arima(yTrain3.ts)
+auto_model3
+
+
+par(mar=c(5,5,5,2))
+pacf(yTrain3.ts, lag.max =52)
+acf(yTrain3.ts, lag.max = 52)
+
 ```
 
 
 
 
 ```{r}
-#Take the difference for the training set and observe the autoregression
+#Take the difference for the training set and observe the autoregression - Zone 1
 yTrain1.lag1.ts <- diff(diff(diff(diff(yTrain1.ts, lag = 7))))
 plot(yTrain1.lag1.ts)
 
@@ -518,9 +868,31 @@ par(mar=c(5,5,5,2))
 pacf(yTrain1.lag1.ts, lag.max =52)
 acf(yTrain1.lag1.ts, lag.max = 52)
 
+
+#Take the difference for the training set and observe the autoregression - Zone 2
+yTrain2.lag2.ts <- diff(diff(diff(diff(yTrain2.ts, lag = 7))))
+plot(yTrain2.lag2.ts)
+
+par(mar=c(5,5,5,2))
+pacf(yTrain2.lag2.ts, lag.max =52)
+acf(yTrain2.lag2.ts, lag.max = 52)
+
+
+
+#Take the difference for the training set and observe the autoregression - Zone 3
+yTrain3.lag3.ts <- diff(diff(diff(diff(yTrain3.ts, lag = 7))))
+plot(yTrain3.lag3.ts)
+
+par(mar=c(5,5,5,2))
+pacf(yTrain3.lag3.ts, lag.max =52)
+acf(yTrain3.lag3.ts, lag.max = 52)
+
 ```
 
 ```{r my Arima}
+
+# Zone 1
+
 predictor_train <- as.matrix(xTrain)
 #Run Arima model
 zone1.arima.model <- Arima(yTrain1, order = c(1,3,1), xreg =predictor_train )
@@ -534,11 +906,45 @@ zone1.arima_predict.ts <- ts(zone1.arima_predict$mean, start = c(45, 1),
 
 accuracy(zone1.arima_predict.ts, yValid1.ts)
 
+
+# Zone 2
+
+predictor_train <- as.matrix(xTrain2)
+#Run Arima model
+zone2.arima.model <- Arima(yTrain2, order = c(1,3,1), xreg =predictor_train )
+summary(zone2.arima.model)
+#Forecast on the test set
+predictors_test <- as.matrix(xValid2)
+zone2.arima_predict <- forecast(zone2.arima.model, h = nValid, 
+                                xreg= predictors_test)
+zone2.arima_predict.ts <- ts(zone2.arima_predict$mean, start = c(45, 1),
+                             end= c(52,7), frequency = 7)
+
+accuracy(zone2.arima_predict.ts, yValid2.ts)
+
+
+# Zone 3
+
+predictor_train <- as.matrix(xTrain3)
+#Run Arima model
+zone3.arima.model <- Arima(yTrain3, order = c(1,3,1), xreg =predictor_train )
+summary(zone3.arima.model)
+#Forecast on the test set
+predictors_test <- as.matrix(xValid3)
+zone3.arima_predict <- forecast(zone3.arima.model, h = nValid, 
+                                xreg= predictors_test)
+zone3.arima_predict.ts <- ts(zone3.arima_predict$mean, start = c(45, 1),
+                             end= c(52,7), frequency = 7)
+
+accuracy(zone3.arima_predict.ts, yValid3.ts)
+
+
+
 ```
 
 
 ```{r}
-#plot the forecast
+#plot the forecast - Zone 1
 autoplot(yTrain1.ts) + 
   autolayer(zone1.arima_predict.ts, color = "red") +
   autolayer(yValid1.ts, color = "gray") +
@@ -547,6 +953,32 @@ autoplot(yTrain1.ts) +
        y = "Power Consumption (kW)")+
   theme(plot.title=element_text(hjust=0.5)) 
   #+coord_cartesian(xlim = c(, ))
+
+
+#plot the forecast - Zone 2
+autoplot(yTrain2.ts) + 
+  autolayer(zone2.arima_predict.ts, color = "red") +
+  autolayer(yValid2.ts, color = "gray") +
+  labs(title = "Zone 2 Power Consumption Forecast - ARIMA ",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme(plot.title=element_text(hjust=0.5)) 
+  #+coord_cartesian(xlim = c(, ))
+
+
+
+#plot the forecast - Zone 3
+autoplot(yTrain3.ts) + 
+  autolayer(zone3.arima_predict.ts, color = "red") +
+  autolayer(yValid3.ts, color = "gray") +
+  labs(title = "Zone 3 Power Consumption Forecast - ARIMA ",
+       x = "Date",
+       y = "Power Consumption (kW)")+
+  theme(plot.title=element_text(hjust=0.5)) 
+  #+coord_cartesian(xlim = c(, ))
+
+
+
 ```
 
 
