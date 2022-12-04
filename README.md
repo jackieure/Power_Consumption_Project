@@ -12,9 +12,9 @@ The main purpose of this project is to create a time-series forecasting model th
  On a larger scale, using time series data and machine learning efforts can help power supply companies improve their efficiency and performance. 
  
 Project Team Members: 
-Uyen Pham- Applied Data Science graduate student at the University of San Diego
-Renetta Nelson- Applied Data Science graduate student at the University of San Diego
-Jacqueline Urenda- Applied Data Science graduate student at the University of San Diego
+•	Uyen Pham
+•	Renetta Nelson
+•	Jacqueline Urenda
 
 
 Methods Used:
