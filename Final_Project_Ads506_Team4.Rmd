@@ -28,7 +28,7 @@ library(ggpubr)
 set.seed(506)
 ```
 
-## Loading the Dataset 
+# Loading the Dataset 
 
 ```{r}
 #Load the data 
@@ -47,7 +47,7 @@ head(power)
 ```
 
 
-## Exploratory Data Analysis
+# Exploratory Data Analysis
 
 ```{r}
 print("Missing Values: ")
@@ -55,7 +55,7 @@ sum(is.na(power)) #no missing values
 ```
 
 
-### Statistical Data Analysis
+## Statistical Data Analysis
 
 The data set consists of 364 days total, taking data from January 1, 2017 to December 30, 2017. The time window is every ten minutes. The temperature is measured in Celsius with a mean and median around 18 degrees. The humidity column displays the percentage of the humidity. The average humidity is 68.26%. The wind speed is measured in km/h, and the power consumption is measured in KiloWatts.
 
@@ -65,7 +65,7 @@ summary(power)
 ```
 
 
-### Histograms
+## Histograms
 
 Temperature appears to have a normal distribution. Humidity is left skewed- as mentioned in summary statistics, humidity is pretty high. Wind Speed is interesting as well, looks like either little to low wind speeds or ~4.5 km/h wind speed . General and Diffuse flows are right skewed. Flow tends to be on a lower level. Zone 1 and Zone 2 have a normal distribution. Zone 2 looks normal as well but looks a bit right skewed. 
 
@@ -75,7 +75,7 @@ Temperature appears to have a normal distribution. Humidity is left skewed- as m
 hist.data.frame(power[,2:9])
 ```
 
-### Correlations
+## Correlations
 
 All three zones have strong correlations between each other. Temperature and wind speed have a correlation of 0.48. Humidity and temperature have a moderate but noticeable correlation as well. General diffuse flows and Diffuse flows have a correlation of 0.56. Temperature seems to show highest correlation with power consumption.
 
@@ -94,7 +94,7 @@ corrplot(corr, method = "color", outline = T, addgrid.col = "darkgray",
 #plot(power[, 2:9],  pch = 16, cex= 0.3)
 ```
 
-### Comparisons of the Power Consumption Zones
+## Comparisons of the Power Consumption Zones
 
 Looking at all three zone's power consumption, it looks like Zone 1 has more power consumption than both Zone 2 and Zone 3. 
 
@@ -169,7 +169,7 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 
 It is more interesting to explore the daily data, since we would be more interesting to forecast the power each Zone needed daily, so the power providers could increase or decrease power supply to meet the demand.
 
-### Daily Power Consumption for all three zones
+# Daily Power Consumption for all three zones
 
 All three zones for power consumption have similar trending paths. The power consumption increases up until it reaches a peak followed by a decline. There appears to be some seasonality. There are some sharp declines on random days, perhaps indicating a presence of power outages. Zone 1 and Zone 2 seem to have big daily fluctuation while Zone 3 seem less fluctuated. Also, They all seem to increase around June to September which could be due to more power consumption during Summer time.
 
@@ -202,7 +202,7 @@ p3 <- ggplot(power.daily.z3, aes(x = Date, y = Total)) +
 grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
-### Check for random walk 
+# Check for random walk 
 
 ```{r}
 #Convert daily power in 3 zones into time series object
@@ -235,7 +235,7 @@ print(acf_value3[1])
 ```
 
 
-### Examine the first Three Weeks of the Different Zones
+# Examine the first Three Weeks of the Different Zones
 
 The following shows the first few weeks of power consumption for all the zones. Zone 1 and 2 starts low on Sunday, goes high during the weekdays, and then low again on Saturday. Zone 3 seems to be have the opposite behavior and the difference between days are less pronounced. 
 
@@ -269,7 +269,7 @@ p3 <- ggplot(power.daily.z3[0:21, ], aes(x = Date, y = Total)) +
 grid.arrange(p1, p2, p3, ncol = 1)
 ```
 
-## Partitioning the Data
+# Partitioning the Data
 
 
 ```{r}
@@ -625,7 +625,7 @@ zone3.myArima[[1]]
 grid.arrange(zone1.myArima[[2]], zone2.myArima[[2]], zone3.myArima[[2]], ncol=1)
 ```
 
-### Residual plots for Holt's and Arima model
+## Residual plots for Holt's and Arima model
 
 ```{r}
 par(mfrow=c(2,1))
@@ -637,7 +637,7 @@ plot(zone1.myArima[[3]]$residuals, xlab = "Year", ylab = "Residuals", bty = "l",
     lwd = 1, main = "Residuals of Zone 1 power consumption- Arima Model")
 ```
 
-### Neuro Network
+## Neuro Network
 
 ```{r}
 #Built function for my Arima models in 3 zones
@@ -694,7 +694,7 @@ full.holt.model.pred.ts <- ts(full.holt.model.pred$mean, start = c(45, 1), end= 
 full.holt.model.pred$mean
 ```
 
-#### Generate a data frame for the result from all models
+## Results from all the models
 
 ```{r}
 Zone1 <- c( 
