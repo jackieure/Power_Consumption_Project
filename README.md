@@ -6,7 +6,7 @@ This project is a part of the ADS-506 course in the Applied Data Science Program
 -- Project Status:Active
 
 
-Project Objective:
+# Project Objective
 The main purpose of this project is to create a time-series forecasting model that can effectively predict the daily power consumption of distribution networks in Tetouan city based on the features in the dataset. Furthermore, we aim to identify any time series patterns including seasonality, level, trend, and noise to appropriately predict such forecasting values.
 
  On a larger scale, using time series data and machine learning efforts can help power supply companies improve their efficiency and performance. 
